@@ -27,16 +27,27 @@ SPLIT_DIR = Path(__file__).resolve().parent.parent.parent / "taskgen" / "splits"
 # Recorded in every result artifact; a change = environment change.
 STAGEHAND_MODEL = "openai/gpt-4o-mini"
 
-SYSTEM_PROMPT = (
-    "You are a shopping assistant operating a web browser to complete tasks on an "
-    "online store. Use the available browser tools to navigate, observe the page, "
-    "act (click, type, select), and extract information.\n"
-    "When a task asks a question, your FINAL message must end with a line of the "
-    "form:\nANSWER: <your answer>\n"
-    "Follow the exact answer format requested in the task. For tasks that ask you "
-    "to modify a cart or place an order, complete the actions on the site; you do "
-    "not need to output an ANSWER line for those."
-)
+# Per-tier turn budgets. DOM mode spends turns on navigate/observe/act before it
+# can answer, so budgets are generous; the efficiency reward still pushes toward
+# fewer turns. Single source of truth: also used as the efficiency denominator.
+TIER_TURNS = {"t1": 12, "t2": 16, "t3": 16, "t4": 20, "t5": 26, "t6": 30}
+
+def _system_prompt(store_url: str) -> str:
+    return (
+        "You are a shopping assistant operating a web browser to complete tasks on "
+        f"the Bodega online store, located ONLY at: {store_url}\n\n"
+        f"ALWAYS begin by navigating to {store_url} . Do NOT visit any other website "
+        "(no amazon.com, nordstrom.com, google.com, etc.) — the ONLY valid site is "
+        f"{store_url} and its sub-pages. The product you need exists on this store; "
+        "if you don't see it, use the store's own search box and pagination.\n\n"
+        "Use the browser tools to navigate, observe the page, act (click, type, "
+        "select), and extract information.\n"
+        "When a task asks a question, once you have the answer STOP calling tools and "
+        "send a FINAL message whose last line is exactly:\nANSWER: <your answer>\n"
+        "Follow the exact answer format requested in the task. For tasks that ask you "
+        "to modify a cart or place an order, complete the actions on the site; you do "
+        "not need to output an ANSWER line for those."
+    )
 
 INFRA_SIGNATURES = (
     "timeout", "timed out", "econnrefused", "connection refused",
@@ -57,6 +68,9 @@ def _load_split(split: str, store_url: str, tier: str, num_examples: int) -> Dat
             t = json.loads(line)
             if tiers and t["info"]["tier"] not in tiers:
                 continue
+            # refresh stale taskgen max_turns with the env's current tier budget
+            # (this is the efficiency-reward denominator)
+            t["info"]["max_turns"] = TIER_TURNS[t["info"]["tier"]]
             rows.append(
                 {
                     "question": t["question"],
@@ -125,11 +139,10 @@ def load_environment(
 
     dataset = _load_split(split, store_url, tier, num_examples)
 
-    # per-tier default max_turns unless overridden
-    tier_turns = {"t1": 5, "t2": 8, "t3": 8, "t4": 10, "t5": 14, "t6": 16}
+    # env-wide max_turns = max of present tiers (per-tier budget lives in info)
     if max_turns is None:
         tiers_present = {r["tier"] for r in dataset["info"]}
-        max_turns = max(tier_turns[t] for t in tiers_present)
+        max_turns = max(TIER_TURNS[t] for t in tiers_present)
 
     rubric = reward_funcs.build_rubric(store_url, verify_key_var)
 
@@ -138,7 +151,7 @@ def load_environment(
         dataset=dataset,
         rubric=rubric,
         max_turns=max_turns,
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=_system_prompt(store_url),
         store_url=store_url,
         verify_key_var=verify_key_var,
         # BrowserEnv does not auto-read BROWSERBASE_PROJECT_ID; pass it explicitly.
