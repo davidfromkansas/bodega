@@ -86,7 +86,8 @@ class ShopBrowserEnv(BrowserEnv):
         self._nav_tool = "navigate" if mode == "dom" else "goto"
 
     async def setup_state(self, state, **kwargs):
-        state = await super().setup_state(state, **kwargs)
+        # BrowserEnv.setup_state mutates `state` in place and returns None.
+        await super().setup_state(state, **kwargs)
         verify_key = os.environ[self._verify_key_var]
         try:
             state["sid"] = mint_sid(self._store_url, verify_key)
