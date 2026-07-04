@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")      // Neon: POOLED connection string (Vercel serverless)
+  directUrl = env("DIRECT_URL")        // Neon: direct connection (migrations/db push)
+}
+
+model Session {
+  sid       String     @id
+  createdAt DateTime   @default(now())
+  expiresAt DateTime
+  couponTries Int      @default(0)
+  cartLines CartLine[]
+  orders    Order[]
+  coupon    String?    // applied coupon code, if any
+}
+
+model CartLine {
+  id      String  @id @default(uuid())
+  sid     String
+  session Session @relation(fields: [sid], references: [sid], onDelete: Cascade)
+  sku     String
+  color   String
+  size    String
+  qty     Int
+  unitPrice Float
+
+  @@index([sid])
+}
+
+model Order {
+  id       String  @id
+  sid      String
+  session  Session @relation(fields: [sid], references: [sid], onDelete: Cascade)
+  itemsJson String // JSON array of {sku,color,size,qty,unit_price}
+  subtotal Float
+  coupon   String?
+  discount Float   @default(0)
+  total    Float
+  shipName     String
+  shipAddress1 String
+  shipCity     String
+  shipState    String
+  shipZip      String
+  seq      Int     // per-sid order counter, deterministic display (A5: no timestamps)
+
+  @@index([sid])
+}
+
+model Coupon {
+  code        String @id
+  type        String // "percent" | "flat"
+  value       Float
+  minSubtotal Float  @default(0)
+}

@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bodega
+      POSTGRES_PASSWORD: bodega
+      POSTGRES_DB: bodega
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bodega"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://bodega:bodega@db:5432/bodega
+      DIRECT_URL: postgresql://bodega:bodega@db:5432/bodega
+      BODEGA_VERIFY_KEY: ${BODEGA_VERIFY_KEY:-dev-verify-key}
+      BODEGA_CATALOG: ${BODEGA_CATALOG:-A}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
