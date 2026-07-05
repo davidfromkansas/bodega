@@ -103,6 +103,8 @@ def build_rubric(store_url: str, verify_key_var: str) -> vf.Rubric:
         if made:
             # verify API needed only for cart/order tiers
             payload = None if spec["type"] == "answer_match" else _verify(state)
+            if payload is not None:
+                state["_bodega_verify_payload"] = payload  # captured for debugging
             terminal = _terminal(payload, completion, answer, spec)
             if tier in ("t4", "t6") and terminal < 1.0:
                 partial = _partial(payload, tier, spec)

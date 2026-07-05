@@ -45,6 +45,7 @@ async def main():
         num_examples=args.n,
         rollouts_per_example=1,
         max_concurrent=2,
+        state_columns=["sid", "_bodega_verify_payload", "_bodega_scores"],
     )
 
     outputs = results["outputs"] if isinstance(results, dict) else results
@@ -86,6 +87,25 @@ async def main():
         comp = field(o, "completion")
         final = comp[-1] if isinstance(comp, list) and comp else comp
         print(f"  final msg: {str(final)[:500]}")
+        # cart/order diagnosis
+        info = field(o, "info") or {}
+        spec = info.get("verify_spec", {})
+        if spec.get("type") in ("cart_exact", "cart_constrained", "order_placed"):
+            print(f"  sid: {field(o, 'sid')}")
+            print(f"  spec items: {spec.get('items')}")
+            payload = field(o, "_bodega_verify_payload")
+            if payload is None and field(o, "sid"):
+                # fallback: re-fetch by sid (cart persists in the store DB)
+                from bodega_env.verify_client import fetch_verify
+                try:
+                    payload = fetch_verify(os.environ["BODEGA_STORE_URL"],
+                                           os.environ["BODEGA_VERIFY_KEY"],
+                                           field(o, "sid"))
+                except Exception as e:
+                    payload = f"<refetch failed: {e}>"
+            print(f"  ACTUAL cart: {payload.get('cart') if isinstance(payload, dict) else payload}")
+            if isinstance(payload, dict) and payload.get("orders"):
+                print(f"  ACTUAL orders: {payload['orders']}")
         m = field(o, "metrics")
         if isinstance(m, dict):
             for mk, mv in m.items():
