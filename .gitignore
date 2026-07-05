@@ -12,3 +12,8 @@ __pycache__/
 .env*
 
 .venv311/
+
+# Eval run artifacts (results are pushed to Prime dashboard, not committed)
+environment/outputs/
+outputs/
+*.bundle
