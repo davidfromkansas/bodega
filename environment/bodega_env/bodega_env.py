@@ -21,11 +21,21 @@ from verifiers.envs.integrations.browser_env import BrowserEnv
 from . import reward_funcs
 from .verify_client import InfraFault, mint_sid
 
-# Prefer data bundled inside the package (so the env is self-contained on the
-# Prime Hub); fall back to the repo layout for local dev before a copy/build.
+# Zapier-style split policy: only PUBLIC splits ("train-pool", "eval") are
+# bundled into the package that ships to the public Hub. The private held-out
+# sets ("test", "eval-ood") are never bundled and live only in the repo, so
+# official/uncontaminated numbers can't leak through the published environment.
+# Resolution is per-file: prefer the bundled package copy, else the repo copy.
 _PKG_SPLITS = Path(__file__).resolve().parent / "data" / "splits"
 _REPO_SPLITS = Path(__file__).resolve().parent.parent.parent / "taskgen" / "splits"
-SPLIT_DIR = _PKG_SPLITS if _PKG_SPLITS.exists() else _REPO_SPLITS
+
+
+def _resolve_split_path(split: str) -> Path:
+    pkg = _PKG_SPLITS / f"{split}.jsonl"
+    if pkg.exists():
+        return pkg
+    return _REPO_SPLITS / f"{split}.jsonl"
+
 
 # Stagehand executor is PINNED (amendment A1): it is part of the environment.
 # Recorded in every result artifact; a change = environment change.
@@ -62,7 +72,7 @@ INFRA_SIGNATURES = (
 
 
 def _load_split(split: str, store_url: str, tier: str, num_examples: int) -> Dataset:
-    path = SPLIT_DIR / f"{split}.jsonl"
+    path = _resolve_split_path(split)
     if not path.exists():
         raise FileNotFoundError(f"unknown split '{split}' ({path})")
     tiers = None if tier == "all" else set(tier.split(","))

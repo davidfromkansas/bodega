@@ -1,0 +1,10 @@
+2026-07-05 14:17:03 - verifiers.utils.env_utils - INFO - Loading environment: bodega-env
+2026-07-05 14:17:03 - verifiers.utils.env_utils - INFO - Using provided args: split=eval, tier=t1
+2026-07-05 14:17:03 - verifiers.utils.env_utils - INFO - Using default args: max_turns=None, mode='dom', num_examples=-1, proxy_model_to_stagehand=False, verify_key_var='BODEGA_VERIFY_KEY', store_url=None
+2026-07-05 14:17:03 - verifiers.envs.integrations.browser_env.browser_env - INFO - BrowserEnv initialized in DOM mode with stagehand_model='openai/gpt-4o-mini'
+2026-07-05 14:17:03 - verifiers.utils.env_utils - INFO - Successfully loaded environment 'bodega-env'
+2026-07-05 14:17:03 - verifiers.utils.thread_utils - INFO - Scaled default executor and 0 registered executor(s) ()
+2026-07-05 14:17:03 - verifiers.serve.server.env_worker.EnvWorker - INFO - Initialized worker bodega-env-0 on ipc:///tmp/vf-7de335080c0f-bodega-env-0
+2026-07-05 14:17:03 - verifiers.serve.server.env_worker.EnvWorker - INFO - Starting worker bodega-env-0
+2026-07-05 14:17:33 - verifiers.utils.process_utils - INFO - Death pipe closed — parent is gone, sending SIGTERM to self
+2026-07-05 14:17:33 - verifiers.serve.server.env_worker.EnvWorker - INFO - Shut down worker bodega-env-0

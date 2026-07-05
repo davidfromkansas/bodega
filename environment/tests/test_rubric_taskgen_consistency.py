@@ -19,7 +19,7 @@ SPLITS = ROOT / "taskgen" / "splits"
 
 def load_all_answer_tasks():
     tasks = []
-    for split in ("train-pool", "eval", "eval-ood"):
+    for split in ("train-pool", "eval", "test", "eval-ood"):
         with open(SPLITS / f"{split}.jsonl") as f:
             for line in f:
                 t = json.loads(line)
@@ -30,7 +30,7 @@ def load_all_answer_tasks():
 
 def test_ground_truth_scores_full_marks():
     tasks = load_all_answer_tasks()
-    assert len(tasks) >= 400  # 250 train + 150 eval + ood t1-t3
+    assert len(tasks) >= 400  # 250 train + 150 (eval public + test held-out) + ood t1-t3
     for t in tasks:
         completion = f"I looked it up on the site.\nANSWER: {t['answer']}"
         fields = t["info"]["verify_spec"]["fields"]
