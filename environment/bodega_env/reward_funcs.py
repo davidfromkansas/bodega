@@ -71,14 +71,10 @@ def build_rubric(store_url: str, verify_key_var: str) -> vf.Rubric:
         except InfraFault as e:
             raise vf.Error(f"InfraFault: {e}") from e
 
-    def terminal_reward(completion, answer, info, state, **kwargs) -> float:
-        if not _made_tool_calls(completion):
-            return 0.0
-        spec = info["verify_spec"]
+    def _terminal(payload, completion, answer, spec) -> float:
         typ = spec["type"]
         if typ == "answer_match":
             return R.score_answer_match(_final_text(completion), answer, spec["fields"])
-        payload = _verify(state)
         if typ == "cart_exact":
             return R.score_cart_exact(payload, spec["items"])
         if typ == "cart_constrained":
@@ -87,23 +83,50 @@ def build_rubric(store_url: str, verify_key_var: str) -> vf.Rubric:
             return R.score_order_placed(payload, spec)
         raise ValueError(f"unknown verify type {typ}")
 
-    def partial_reward(completion, info, state, **kwargs) -> float:
-        tier = info["tier"]
-        if tier not in ("t4", "t6") or not _made_tool_calls(completion):
-            return 0.0
-        spec = info["verify_spec"]
-        payload = _verify(state)
+    def _partial(payload, tier, spec) -> float:
         items = payload["cart"] if tier == "t4" else (
             payload["orders"][0]["items"] if payload["orders"] else []
         )
         return R.partial_credit(items, spec["items"])
 
-    def efficiency_reward(completion, info, **kwargs) -> float:
-        if not _made_tool_calls(completion):
-            return 0.0
-        return R.efficiency(_turns_used(completion), info.get("max_turns", 8))
+    def _scores(completion, answer, info, state):
+        """Compute the full breakdown ONCE per rollout; memoize on state.
+        vf.Rubric sums funcs, so all gating (zero-gate, partial-only-when-
+        terminal<1) must be baked in here, and verify called at most once."""
+        cache = state.get("_bodega_scores")
+        if cache is not None:
+            return cache
+        tier = info["tier"]
+        spec = info["verify_spec"]
+        made = _made_tool_calls(completion)
+        terminal = partial = 0.0
+        if made:
+            # verify API needed only for cart/order tiers
+            payload = None if spec["type"] == "answer_match" else _verify(state)
+            terminal = _terminal(payload, completion, answer, spec)
+            if tier in ("t4", "t6") and terminal < 1.0:
+                partial = _partial(payload, tier, spec)
+        eff = R.efficiency(_turns_used(completion), info.get("max_turns", 8)) if made else 0.0
+        total = R.combine(terminal, partial, eff, tier, made)
+        cache = {"terminal": terminal, "partial": partial, "efficiency": eff,
+                 "made": made, "total": total}
+        state["_bodega_scores"] = cache
+        return cache
+
+    # --- single rewarded func (weight 1.0) ---
+    def reward(completion, answer, info, state, **kwargs) -> float:
+        return _scores(completion, answer, info, state)["total"]
 
     # --- monitor metrics (weight 0.0: logged, never rewarded) ---
+    def terminal_reward(completion, answer, info, state, **kwargs) -> float:
+        return _scores(completion, answer, info, state)["terminal"]
+
+    def partial_reward(completion, answer, info, state, **kwargs) -> float:
+        return _scores(completion, answer, info, state)["partial"]
+
+    def efficiency_reward(completion, answer, info, state, **kwargs) -> float:
+        return _scores(completion, answer, info, state)["efficiency"]
+
     def m_made_tool_calls(completion, **kwargs) -> float:
         return 1.0 if _made_tool_calls(completion) else 0.0
 
@@ -117,9 +140,8 @@ def build_rubric(store_url: str, verify_key_var: str) -> vf.Rubric:
         return float(_turns_used(completion))
 
     rubric = vf.Rubric(
-        funcs=[terminal_reward, partial_reward, efficiency_reward,
+        funcs=[reward, terminal_reward, partial_reward, efficiency_reward,
                m_made_tool_calls, m_answer_format, m_turns],
-        weights=[R.WEIGHTS["terminal"], R.WEIGHTS["partial"], R.WEIGHTS["efficiency"],
-                 0.0, 0.0, 0.0],
+        weights=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     )
     return rubric
