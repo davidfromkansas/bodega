@@ -17,7 +17,9 @@ import verifiers as vf
 from . import rubric as R
 from .verify_client import InfraFault, fetch_verify
 
-SEED_DIR = Path(__file__).resolve().parent.parent.parent / "storefront" / "seed"
+_PKG_SEED = Path(__file__).resolve().parent / "data" / "seed"
+_REPO_SEED = Path(__file__).resolve().parent.parent.parent / "storefront" / "seed"
+SEED_DIR = _PKG_SEED if _PKG_SEED.exists() else _REPO_SEED
 
 
 def _load_catalog_by_sku():

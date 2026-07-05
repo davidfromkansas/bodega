@@ -21,7 +21,11 @@ from verifiers.envs.integrations.browser_env import BrowserEnv
 from . import reward_funcs
 from .verify_client import InfraFault, mint_sid
 
-SPLIT_DIR = Path(__file__).resolve().parent.parent.parent / "taskgen" / "splits"
+# Prefer data bundled inside the package (so the env is self-contained on the
+# Prime Hub); fall back to the repo layout for local dev before a copy/build.
+_PKG_SPLITS = Path(__file__).resolve().parent / "data" / "splits"
+_REPO_SPLITS = Path(__file__).resolve().parent.parent.parent / "taskgen" / "splits"
+SPLIT_DIR = _PKG_SPLITS if _PKG_SPLITS.exists() else _REPO_SPLITS
 
 # Stagehand executor is PINNED (amendment A1): it is part of the environment.
 # Recorded in every result artifact; a change = environment change.
