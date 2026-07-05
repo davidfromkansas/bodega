@@ -1,0 +1,9 @@
+2026-07-05 15:22:18 - verifiers.serve.server.env_server.ZMQEnvServer - INFO - Initializing ZMQEnvServer to serve bodega-env (env_args={'split': 'eval', 'tier': 't1'}, extra_env_kwargs={'timeout_seconds': 180.0, 'concurrency': 2}, num_workers=1)
+2026-07-05 15:22:18 - verifiers.serve.server.env_server.ZMQEnvServer - INFO - ZMQEnvServer started on tcp://127.0.0.1:62884
+2026-07-05 15:22:18 - verifiers.serve.server.env_router.EnvRouter - INFO - Started worker (id=0, name=bodega-env-0, address=ipc:///tmp/vf-38db152814da-bodega-env-0, pid=16391)
+2026-07-05 15:22:28 - verifiers.serve.server.env_router.EnvRouter - INFO - Active tasks: 0 (W0: ?)
+  Server | Lag: min=0ms mean=1ms median=1ms p90=1ms p99=1ms max=1ms (n=100)
+  W0     | no stats yet
+2026-07-05 15:22:37 - verifiers.utils.process_utils - INFO - Death pipe closed — parent is gone, sending SIGTERM to self
+2026-07-05 15:22:38 - verifiers.serve.server.env_router.EnvRouter - INFO - Router shut down
+2026-07-05 15:22:38 - verifiers.serve.server.env_server.ZMQEnvServer - INFO - ZMQEnvServer shut down
