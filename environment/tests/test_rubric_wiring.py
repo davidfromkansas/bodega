@@ -49,7 +49,8 @@ def test_partial_added_only_when_terminal_lt_1(monkeypatch):
     payload = {"cart": [{"sku": "GRO-1", "color": "green", "size": "One Size", "qty": 1}]}
     reward = _reward_func(monkeypatch, payload)
     r = reward(completion=GOOD_COMPLETION, answer="", info=dict(T4_INFO), state={"sid": "s"})
-    expected = 0.85 * 0.0 + 0.10 * 0.7 + 0.05 * (1 - 2 / 20)
+    # terminal=0 -> no efficiency bonus (anti-hack); only partial counts
+    expected = 0.10 * 0.7
     assert r == pytest.approx(expected)
 
 

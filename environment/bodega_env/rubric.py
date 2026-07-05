@@ -132,14 +132,16 @@ def efficiency(turns_used: int, max_turns: int) -> float:
 def combine(terminal: float, partial: float, eff: float, tier: str,
             made_tool_calls: bool, weights: dict = WEIGHTS) -> float:
     """Final reward. Zero-gate first; partial credit only for T4/T6 and only
-    when terminal < 1."""
+    when terminal < 1; efficiency bonus ONLY on full success (terminal == 1) so
+    failing fast is never rewarded over trying hard (anti-hack)."""
     if not made_tool_calls:
         return 0.0
     partial_term = 0.0
     if tier in ("t4", "t6") and terminal < 1.0:
         partial_term = partial
+    eff_term = eff if terminal >= 1.0 else 0.0
     return (
         weights["terminal"] * terminal
         + weights["partial"] * partial_term
-        + weights["efficiency"] * eff
+        + weights["efficiency"] * eff_term
     )

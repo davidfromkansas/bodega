@@ -286,13 +286,20 @@ def test_combine_zero_gate():
 def test_combine_weights():
     # perfect T1: 0.85 + efficiency share
     assert combine(1.0, 0.0, 1.0, "t1", True) == pytest.approx(0.85 + 0.05)
-    # failed T4 with partial 0.7 and eff 0.5
-    expected = 0.85 * 0.0 + 0.10 * 0.7 + 0.05 * 0.5
-    assert combine(0.0, 0.7, 0.5, "t4", True) == pytest.approx(expected)
+    # failed T4 with partial 0.7: efficiency is NOT awarded on failure (anti-hack)
+    assert combine(0.0, 0.7, 0.5, "t4", True) == pytest.approx(0.10 * 0.7)
     # partial credit NOT awarded when terminal == 1
     assert combine(1.0, 0.9, 0.0, "t4", True) == pytest.approx(0.85)
     # partial credit NOT awarded outside t4/t6
     assert combine(0.0, 0.9, 0.0, "t2", True) == pytest.approx(0.0)
+
+
+def test_efficiency_only_on_full_success():
+    # failing fast must never beat trying hard: no efficiency bonus unless terminal==1
+    assert combine(0.0, 0.0, 0.9, "t1", True) == 0.0
+    assert combine(0.0, 0.0, 0.9, "t6", True) == 0.0
+    # full success gets the speed bonus
+    assert combine(1.0, 0.0, 0.9, "t1", True) == pytest.approx(0.85 + 0.05 * 0.9)
 
 
 def test_weights_sum_to_one():
