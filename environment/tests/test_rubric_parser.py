@@ -20,6 +20,7 @@ from bodega_env.rubric import (
     combine,
     efficiency,
     partial_credit,
+    partial_credit_constrained,
     score_answer_match,
     score_cart_constrained,
     score_cart_exact,
@@ -267,6 +268,66 @@ def test_partial_credit_math():
     assert partial_credit([dict(ITEM)], spec) == pytest.approx(0.5)
     # empty cart -> 0
     assert partial_credit([], spec) == 0.0
+
+
+# ------------------------------------- partial credit (T5 cart_constrained)
+
+def test_partial_constrained_full_valid_under_budget():
+    # exactly k valid items, under budget -> coverage 1, tidiness 1, budget 1
+    pl = [line("ELC-0001"), line("ELC-0002")]
+    assert partial_credit_constrained(pl, T5_SPEC, CATALOG) == pytest.approx(1.0)
+
+
+def test_partial_constrained_progress_one_of_two():
+    # one valid item under budget -> 0.5*0.5 + 0.3*0.5 + 0.2*1
+    pl = [line("ELC-0001")]
+    assert partial_credit_constrained(pl, T5_SPEC, CATALOG) == pytest.approx(0.6)
+
+
+def test_partial_constrained_over_budget_graded():
+    # both valid but subtotal over budget -> budget term = budget/actual
+    over = dict(line("ELC-0002"), unit_price=200.0)  # actual 230 > 161
+    pl = [line("ELC-0001"), over]
+    expected = 0.5 * 1 + 0.3 * 1 + 0.2 * (161 / 230.0)
+    assert partial_credit_constrained(pl, T5_SPEC, CATALOG) == pytest.approx(expected)
+
+
+def test_partial_constrained_extras_penalized_via_tidiness():
+    # 2 valid + 2 junk (wrong attr + wrong category), under budget
+    # coverage 1, tidiness min(2,2)/max(4,2)=0.5, budget 1
+    pl = [line("ELC-0001"), line("ELC-0002"), line("ELC-0003"), line("APP-0001")]
+    assert partial_credit_constrained(pl, T5_SPEC, CATALOG) == pytest.approx(0.85)
+
+
+def test_partial_constrained_over_add_hack_capped():
+    # dumping many valid copies can't inflate coverage (capped at k) and tanks
+    # tidiness; must stay well below a real success's weighted floor (0.51)
+    pl = [line("ELC-0001"), line("ELC-0002")] + [line("ELC-0001")] * 18
+    val = partial_credit_constrained(pl, T5_SPEC, CATALOG)
+    assert val < 1.0
+    assert WEIGHTS["partial"] * val < WEIGHTS["terminal"] * 0.6
+
+
+def test_partial_constrained_junk_only_zero():
+    # no qualifying items -> 0 even if cheap/under budget (no free credit)
+    assert partial_credit_constrained([line("ELC-0003")], T5_SPEC, CATALOG) == 0.0
+
+
+def test_partial_constrained_empty_zero():
+    assert partial_credit_constrained([], T5_SPEC, CATALOG) == 0.0
+
+
+def test_partial_constrained_duplicates_count_once():
+    # same valid sku twice: distinct=1, total_lines=2 -> tidiness penalty
+    pl = [line("ELC-0001"), line("ELC-0001")]
+    assert partial_credit_constrained(pl, T5_SPEC, CATALOG) == pytest.approx(0.6)
+
+
+def test_combine_t5_partial_only_when_terminal_zero():
+    # invalid T5 cart (terminal 0) -> partial is awarded
+    assert combine(0.0, 0.6, 0.0, "t5", True) == pytest.approx(0.10 * 0.6)
+    # valid-but-suboptimal T5 cart (terminal 0.7) -> NO partial on top of terminal
+    assert combine(0.7, 1.0, 0.0, "t5", True) == pytest.approx(0.85 * 0.7)
 
 
 # ------------------------------------------------------------- composition

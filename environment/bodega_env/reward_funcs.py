@@ -1,7 +1,8 @@
 """Builds the vf.Rubric that wires the pure scorers in rubric.py to verifiers.
 
 Reward (weighted, in order):
-  zero-gate (no tool calls -> 0) · terminal 0.85 · partial 0.10 (T4/T6) · eff 0.05
+  zero-gate (no tool calls -> 0) · terminal 0.85 · partial 0.10 (T4/T6 when
+  terminal<1; T5 when terminal==0) · eff 0.05
 Monitor metrics (logged, never rewarded): infra faults, ANSWER-format
 compliance, turns used.
 
@@ -110,6 +111,10 @@ def build_rubric(store_url: str, verify_key_var: str) -> vf.Rubric:
             terminal = _terminal(payload, completion, answer, spec)
             if tier in ("t4", "t6") and terminal < 1.0:
                 partial = _partial(payload, tier, spec)
+            elif tier == "t5" and terminal == 0.0:
+                partial = R.partial_credit_constrained(
+                    payload["cart"], spec, CATALOG_BY_SKU
+                )
         eff = R.efficiency(_turns_used(completion), info.get("max_turns", 8)) if made else 0.0
         total = R.combine(terminal, partial, eff, tier, made)
         cache = {"terminal": terminal, "partial": partial, "efficiency": eff,
